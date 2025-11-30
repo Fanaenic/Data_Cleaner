@@ -1,6 +1,6 @@
 // src/components/Auth.tsx
 import React, { useState } from 'react';
-import axios from 'axios'; // Импортируем только axios
+import axios from 'axios';
 import { AuthProps, LoginFormData, RegisterFormData, AuthResponse, UserData } from '../types';
 import './Auth.css';
 
@@ -17,7 +17,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   });
 
   const [registerData, setRegisterData] = useState<RegisterFormData>({
-    name: '', // username
+    name: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -34,8 +34,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     setMessage('');
 
     try {
-      // Указываем тип AuthResponse для данных ответа
-      const response = await axios.post<AuthResponse>(`${API_BASE}/login`, {
+      const response = await axios.post<AuthResponse>(`${API_BASE}/auth/login`, {
         email: loginData.email,
         password: loginData.password
       });
@@ -50,15 +49,12 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       };
 
       onLogin(userData);
-
-    } catch (error: unknown) { // Используем 'unknown' для безопасности
+    } catch (error: unknown) {
       console.error("Login error:", error);
       let errorMessage = '❌ Ошибка входа: Неизвестная ошибка';
 
-      // Проверяем, является ли ошибка ошибкой Axios
       if (axios.isAxiosError(error)) {
         if (error.response) {
-          // Сервер ответил с кодом, отличным от 2xx
           const status = error.response.status;
           const detail = error.response.data.detail || 'Неверный email или пароль';
 
@@ -70,14 +66,11 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             errorMessage = `❌ Ошибка входа: ${detail}`;
           }
         } else if (error.request) {
-          // Запрос был сделан, но ответ не получен (например, нет соединения)
           errorMessage = '❌ Нет соединения с сервером. Проверьте подключение.';
         } else {
-          // Произошло что-то при настройке запроса
           errorMessage = `❌ Ошибка сети: ${error.message}`;
         }
       } else {
-        // Это не ошибка Axios, возможно, ошибка JavaScript
         errorMessage = `❌ Ошибка: ${String(error)}`;
       }
 
@@ -105,11 +98,12 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     }
 
     try {
-      // Указываем тип AuthResponse для данных ответа
-      const response = await axios.post<AuthResponse>(`${API_BASE}/register`, {
+      // Передаём name, email, password и username = email
+      const response = await axios.post<AuthResponse>(`${API_BASE}/auth/register`, {
+        name: registerData.name,
         email: registerData.email,
-        password: registerData.password,
-        name: registerData.name, // Передаем name как username
+        username: registerData.email, // ← обязательно для UserCreate
+        password: registerData.password
       });
 
       const { access_token, user } = response.data;
@@ -122,15 +116,12 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       };
 
       onLogin(userData);
-
-    } catch (error: unknown) { // Используем 'unknown' для безопасности
+    } catch (error: unknown) {
       console.error("Registration error:", error);
       let errorMessage = '❌ Ошибка регистрации: Неизвестная ошибка';
 
-      // Проверяем, является ли ошибка ошибкой Axios
       if (axios.isAxiosError(error)) {
         if (error.response) {
-          // Сервер ответил с кодом, отличным от 2xx
           const status = error.response.status;
           const detail = error.response.data.detail || 'Ошибка сервера';
 
@@ -138,7 +129,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             if (detail === "Email already registered") {
               errorMessage = '❌ Пользователь с таким email уже зарегистрирован';
             } else if (detail === "Username already taken") {
-               errorMessage = '❌ Пользователь с таким именем уже зарегистрирован';
+              errorMessage = '❌ Пользователь с таким именем уже зарегистрирован';
             } else {
               errorMessage = `❌ Ошибка регистрации: ${detail}`;
             }
@@ -148,14 +139,11 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             errorMessage = `❌ Ошибка регистрации: ${detail}`;
           }
         } else if (error.request) {
-          // Запрос был сделан, но ответ не получен
           errorMessage = '❌ Нет соединения с сервером. Проверьте подключение.';
         } else {
-          // Произошло что-то при настройке запроса
           errorMessage = `❌ Ошибка сети: ${error.message}`;
         }
       } else {
-        // Это не ошибка Axios, возможно, ошибка JavaScript
         errorMessage = `❌ Ошибка: ${String(error)}`;
       }
 
@@ -226,8 +214,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           <button type="submit" className="auth-btn" disabled={loading}>
             {loading ? 'Загрузка...' : 'Войти'}
           </button>
-
-
         </form>
 
         <form

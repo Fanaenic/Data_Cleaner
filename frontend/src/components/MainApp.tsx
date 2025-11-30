@@ -15,13 +15,12 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [history, setHistory] = useState<ImageData[]>([]);
 
-  // Загружаем историю при открытии вкладки или после загрузки
   const fetchHistory = async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await axios.get<ImageData[]>(`${API_BASE}/images`, {
+      const response = await axios.get<ImageData[]>(`${API_BASE}/image/`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setHistory(response.data);
@@ -69,7 +68,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
     setUploadMessage(null);
 
     try {
-      await axios.post(`${API_BASE}/upload`, formData, {
+      await axios.post(`${API_BASE}/image/`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
@@ -77,9 +76,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
       });
 
       setUploadMessage('✅ Изображение успешно загружено!');
-      setProcessedUrl(previewUrl); // имитация "обработанного" (без ИИ просто копируем превью)
+      setProcessedUrl(previewUrl);
 
-      // Обновляем историю
       fetchHistory();
     } catch (error) {
       let msg = '❌ Ошибка загрузки';
@@ -212,7 +210,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
                           objectFit: 'cover'
                         }}
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = '🖼️';
+                          (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24"><text x="12" y="12" font-size="10" text-anchor="middle" fill="lightgray">🖼️</text></svg>';
                         }}
                       />
                     </div>
@@ -220,20 +218,20 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
                       <h3>{img.original_name}</h3>
                       <p>Загружено: {new Date(img.created_at).toLocaleString('ru-RU')}</p>
                     </div>
-                        <button
-                          className="action-btn"
-                          onClick={() => {
-                            const imageUrl = `${API_BASE}/uploads/${img.filename}`;
-                            const link = document.createElement('a');
-                            link.href = imageUrl;
-                            link.download = img.original_name; // оригинальное имя файла
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          }}
-                        >
-                          📥 Скачать
-                        </button>
+                    <button
+                      className="action-btn"
+                      onClick={() => {
+                        const imageUrl = `${API_BASE}/uploads/${img.filename}`;
+                        const link = document.createElement('a');
+                        link.href = imageUrl;
+                        link.download = img.original_name;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
+                    >
+                      📥 Скачать
+                    </button>
                   </div>
                 ))}
               </div>
