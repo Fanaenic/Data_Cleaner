@@ -1,7 +1,6 @@
-# backend/models/user.py
 from sqlalchemy import Column, Integer, String, DateTime
 from datetime import datetime
-from backend.core import Base
+from core import Base  # Измените с backend.core
 
 class User(Base):
     __tablename__ = "users"

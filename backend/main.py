@@ -1,18 +1,24 @@
 # backend/main.py
 import os
-from datetime import datetime, timedelta
-from typing import Dict
+import sys
+
+# Добавляем текущую директорию в PYTHONPATH
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from datetime import datetime
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from jwt.exceptions import InvalidTokenError
 import jwt
-from backend.api import router
-from backend.core import engine, Base, SECRET_KEY, ALGORITHM, oauth2_scheme, get_db
-from backend.models import User
-from backend.schemas.user import UserResponse
-from backend.services import AuthService
+
+# Теперь импортируем наши модули
+from api import router
+from core import engine, Base, SECRET_KEY, ALGORITHM, oauth2_scheme, get_db, UPLOADS_DIR
+from models import User
+from schemas.user import UserResponse
+from services import AuthService
 
 # Создаём таблицы
 Base.metadata.create_all(bind=engine)
@@ -28,10 +34,10 @@ app.add_middleware(
 )
 
 # Статика для изображений
-from backend.core import UPLOADS_DIR
+UPLOADS_DIR.mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
-# Метод для получения текущего пользователя (для роутеров вне auth)
+# Метод для получения текущего пользователя
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> UserResponse:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -68,7 +74,7 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
         app=app,
-        host="127.0.0.1",
+        host="0.0.0.0",
         port=8000,
         log_level="info"
     )

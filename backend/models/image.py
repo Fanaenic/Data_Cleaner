@@ -1,7 +1,6 @@
-# backend/models/image.py
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from datetime import datetime
-from backend.core import Base
+from core import Base  # Измените с backend.core
 
 class Image(Base):
     __tablename__ = "images"

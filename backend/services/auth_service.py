@@ -1,4 +1,3 @@
-# backend/services/auth_service.py
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import HTTPException, status
@@ -6,9 +5,9 @@ from sqlalchemy.orm import Session
 from jwt.exceptions import InvalidTokenError
 import jwt
 from datetime import datetime, timedelta
-from backend.core import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
-from backend.models.user import User
-from backend.schemas.user import UserCreate, UserResponse
+from core import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES  # Измените
+from models.user import User  # Измените с backend.models
+from schemas.user import UserCreate, UserResponse  # Измените с backend.schemas
 
 ph = PasswordHasher()
 

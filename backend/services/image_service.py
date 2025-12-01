@@ -1,12 +1,11 @@
-# backend/services/image_service.py
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from pathlib import Path
 import shutil
 import uuid
-from backend.core import UPLOADS_DIR
-from backend.models.image import Image as ImageModel
-from backend.schemas.image import ImageResponse
+from core import UPLOADS_DIR  # Измените с backend.core
+from models.image import Image as ImageModel  # Измените с backend.models
+from schemas.image import ImageResponse  # Измените с backend.schemas
 
 class ImageService:
     @staticmethod

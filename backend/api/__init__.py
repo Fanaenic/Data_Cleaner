@@ -1,4 +1,3 @@
-# backend/api/__init__.py
 from fastapi import APIRouter
 from .auth import router as auth_router
 from .image import router as image_router

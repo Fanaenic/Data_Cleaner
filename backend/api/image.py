@@ -1,12 +1,10 @@
-# backend/api/image.py
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from sqlalchemy.orm import Session
-from backend.core import get_db, oauth2_scheme
-from backend.services import AuthService, ImageService
-from backend.schemas.image import ImageResponse
+from core import get_db, oauth2_scheme
+from services import AuthService, ImageService
+from schemas.image import ImageResponse
 
 router = APIRouter()
-
 @router.post("/", response_model=ImageResponse, status_code=status.HTTP_201_CREATED)
 async def upload_image(
     file: UploadFile = File(...),
