@@ -1,30 +1,13 @@
-# Этап сборки
-FROM node:18-alpine as build
+FROM node:18-alpine
 
 WORKDIR /app
 
-# Копирование package.json и package-lock.json
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
-# Установка зависимостей
-RUN npm ci --only=production
+RUN npm ci
 
-# Копирование исходного кода
 COPY . .
 
-# Сборка приложения
-RUN npm run build
+EXPOSE 3000
 
-# Этап запуска
-FROM nginx:alpine
-
-# Копирование собранного приложения в nginx
-COPY --from=build /app/build /usr/share/nginx/html
-
-# Копирование конфигурации nginx
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Открытие порта
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["npm", "start"]

@@ -1,10 +1,22 @@
-// src/components/MainApp.tsx
+// frontend/src/components/MainApp.tsx
 import React, { useState, useEffect } from 'react';
 import axios, { AxiosError } from 'axios';
-import { MainAppProps, UserData, ImageData } from '../types';
+import { MainAppProps, ImageData } from '../types'; // Убрали UserData
 import './MainApp.css';
 
 const API_BASE = 'http://localhost:8000';
+
+// Расширяем типы
+interface ProcessedImageData extends ImageData {
+  url: string;
+  processed: boolean;
+  detected_count: number;
+  detected_objects?: Array<{
+    class: string;
+    confidence: number;
+    bbox: number[];
+  }>;
+}
 
 const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState<'upload' | 'history'>('upload');
@@ -13,14 +25,16 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
   const [processedUrl, setProcessedUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState<boolean>(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
-  const [history, setHistory] = useState<ImageData[]>([]);
+  const [history, setHistory] = useState<ProcessedImageData[]>([]);
+  const [processingType, setProcessingType] = useState<'blur' | 'pixelate' | 'none'>('blur');
+  const [detectionInfo, setDetectionInfo] = useState<string>('');
 
   const fetchHistory = async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await axios.get<ImageData[]>(`${API_BASE}/image/`, {
+      const response = await axios.get<ProcessedImageData[]>(`${API_BASE}/image/`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setHistory(response.data);
@@ -40,6 +54,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
     setSelectedFile(file);
     setUploadMessage(null);
     setProcessedUrl(null);
+    setDetectionInfo('');
 
     if (file) {
       const url = URL.createObjectURL(file);
@@ -64,19 +79,42 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
     const formData = new FormData();
     formData.append('file', selectedFile);
 
+    const url = `${API_BASE}/image/?process_type=${processingType}`;
+
     setUploading(true);
     setUploadMessage(null);
 
     try {
-      await axios.post(`${API_BASE}/image/`, formData, {
+      const response = await axios.post<ProcessedImageData>(url, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
         }
       });
 
-      setUploadMessage('✅ Изображение успешно загружено!');
-      setProcessedUrl(previewUrl);
+      const data = response.data;
+
+      // Формируем информацию о детекции
+      let detectionText = '';
+      if (data.detected_count > 0) {
+        detectionText = `✅ Обнаружено объектов: ${data.detected_count}`;
+        if (data.detected_objects && data.detected_objects.length > 0) {
+          const objectsList = data.detected_objects.map(obj =>
+            `${obj.class} (${(obj.confidence * 100).toFixed(1)}%)`
+          ).join(', ');
+          detectionText += `: ${objectsList}`;
+        }
+      } else {
+        detectionText = 'ℹ️ Объекты для анонимизации не обнаружены';
+      }
+
+      setDetectionInfo(detectionText);
+      setUploadMessage(`✅ Изображение успешно обработано! ${detectionText}`);
+
+      // Показываем обработанное изображение
+      if (data.url) {
+        setProcessedUrl(`${API_BASE}${data.url}`);
+      }
 
       fetchHistory();
     } catch (error) {
@@ -103,7 +141,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
     <div className="main-app">
       <header className="app-header">
         <div className="header-content">
-          <h1>DataCleaner</h1>
+          <h1>🤖 DataCleaner AI</h1>
           <div className="user-info">
             <span>Добро пожаловать, {user.user.name}!</span>
             <button onClick={onLogout} className="logout-btn">Выйти</button>
@@ -129,8 +167,35 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
       <main className="app-content">
         {activeTab === 'upload' && (
           <div className="upload-section">
-            <h2>Загрузка изображения</h2>
-            <p>Выберите изображение для отправки на сервер</p>
+            <h2>🤖 AI Анонимизация изображений</h2>
+            <p>Загрузите фото для автоматического размытия лиц</p>
+
+            {/* Выбор типа обработки */}
+            <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+              <h3 style={{ marginBottom: '10px', fontSize: '16px' }}>Метод обработки:</h3>
+              <div className="demo-buttons" style={{ marginBottom: '15px' }}>
+                <button
+                  className={`demo-btn ${processingType === 'blur' ? 'primary' : ''}`}
+                  onClick={() => setProcessingType('blur')}
+                  style={{
+                    backgroundColor: processingType === 'blur' ? '#28a745' : 'white',
+                    color: processingType === 'blur' ? 'white' : '#333'
+                  }}
+                >
+                  🔍 Размытие
+                </button>
+                <button
+                  className={`demo-btn ${processingType === 'none' ? 'primary' : ''}`}
+                  onClick={() => setProcessingType('none')}
+                  style={{
+                    backgroundColor: processingType === 'none' ? '#28a745' : 'white',
+                    color: processingType === 'none' ? 'white' : '#333'
+                  }}
+                >
+                  📷 Без обработки
+                </button>
+              </div>
+            </div>
 
             <div className="demo-buttons">
               <label className="demo-btn primary" style={{ cursor: 'pointer' }}>
@@ -147,7 +212,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
                 onClick={handleUpload}
                 disabled={!selectedFile || uploading}
               >
-                {uploading ? '🚀 Загрузка...' : '🚀 Обработать изображение'}
+                {uploading ? '🤖 Обработка AI...' : '🚀 Обработать изображение'}
               </button>
             </div>
 
@@ -162,27 +227,55 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
 
             <div className="demo-placeholder">
               {previewUrl && (
-                <div className="placeholder-image">
+                <div className="placeholder-image" style={{ position: 'relative' }}>
                   <img
                     src={previewUrl}
                     alt="Превью"
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                   />
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '5px',
+                    left: '5px',
+                    backgroundColor: 'rgba(0,0,0,0.7)',
+                    color: 'white',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}>
+                    Исходное
+                  </div>
                 </div>
               )}
               {processedUrl && (
-                <div className="placeholder-image">
+                <div className="placeholder-image" style={{ position: 'relative' }}>
                   <img
                     src={processedUrl}
                     alt="Обработанное"
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                   />
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '5px',
+                    left: '5px',
+                    backgroundColor: 'rgba(0,123,255,0.7)',
+                    color: 'white',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}>
+                    Обработанное
+                  </div>
                 </div>
               )}
               {!previewUrl && !processedUrl && (
                 <>
-                  <div className="placeholder-image">🖼️ Превью изображения</div>
-                  <div className="placeholder-image">✅ Обработанное изображение</div>
+                  <div className="placeholder-image">
+                    🖼️ Исходное изображение
+                  </div>
+                  <div className="placeholder-image">
+                    ✅ Обработанное AI
+                  </div>
                 </>
               )}
             </div>
@@ -191,8 +284,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
 
         {activeTab === 'history' && (
           <div className="history-section">
-            <h2>История обработки</h2>
-            <p>Ваши загруженные изображения</p>
+            <h2>📋 История обработки</h2>
+            <p>Ваши загруженные и обработанные изображения</p>
 
             {history.length === 0 ? (
               <p style={{ textAlign: 'center', color: '#666' }}>Нет загруженных изображений</p>
@@ -202,12 +295,13 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
                   <div key={img.id} className="history-item">
                     <div className="item-preview">
                       <img
-                        src={`${API_BASE}/uploads/${img.filename}`}
+                        src={`${API_BASE}${img.url}`}
                         alt={img.original_name}
                         style={{
                           width: '100%',
                           height: '100%',
-                          objectFit: 'cover'
+                          objectFit: 'cover',
+                          borderRadius: '4px'
                         }}
                         onError={(e) => {
                           (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24"><text x="12" y="12" font-size="10" text-anchor="middle" fill="lightgray">🖼️</text></svg>';
@@ -217,11 +311,16 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
                     <div className="item-info">
                       <h3>{img.original_name}</h3>
                       <p>Загружено: {new Date(img.created_at).toLocaleString('ru-RU')}</p>
+                      {img.processed && (
+                        <p style={{ color: '#28a745', margin: '2px 0', fontWeight: '500' }}>
+                          ✅ Обработано AI
+                        </p>
+                      )}
                     </div>
                     <button
                       className="action-btn"
                       onClick={() => {
-                        const imageUrl = `${API_BASE}/uploads/${img.filename}`;
+                        const imageUrl = `${API_BASE}${img.url}`;
                         const link = document.createElement('a');
                         link.href = imageUrl;
                         link.download = img.original_name;
@@ -229,6 +328,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
                         link.click();
                         document.body.removeChild(link);
                       }}
+                      style={{ backgroundColor: '#28a745' }}
                     >
                       📥 Скачать
                     </button>

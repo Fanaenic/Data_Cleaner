@@ -1,8 +1,6 @@
-# backend/main.py
 import os
 import sys
 
-# Добавляем текущую директорию в PYTHONPATH
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from datetime import datetime
@@ -13,14 +11,12 @@ from sqlalchemy.orm import Session
 from jwt.exceptions import InvalidTokenError
 import jwt
 
-# Теперь импортируем наши модули
 from api import router
 from core import engine, Base, SECRET_KEY, ALGORITHM, oauth2_scheme, get_db, UPLOADS_DIR
 from models import User
 from schemas.user import UserResponse
 from services import AuthService
 
-# Создаём таблицы
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="DataCleaner API", version="1.0.0")
@@ -33,11 +29,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Статика для изображений
 UPLOADS_DIR.mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
-# Метод для получения текущего пользователя
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> UserResponse:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -64,11 +58,19 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         created_at=user.created_at.isoformat()
     )
 
-# Делаем метод доступным в auth_service
 AuthService.get_current_user = staticmethod(get_current_user)
 
-# Подключаем роутеры
 app.include_router(router)
+
+# ДОБАВЬТЕ ЭТИ ЭНДПОИНТЫ
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "datacleaner"}
+
+@app.get("/profile")
+async def get_profile(current_user = Depends(get_current_user)):
+    """Получить профиль текущего пользователя"""
+    return current_user
 
 if __name__ == "__main__":
     import uvicorn

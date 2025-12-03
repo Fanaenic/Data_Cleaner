@@ -1,12 +1,10 @@
-// src/types.ts
-
 export interface LoginFormData {
   email: string;
   password: string;
 }
 
 export interface RegisterFormData {
-  name: string; // username
+  name: string;
   email: string;
   password: string;
   confirmPassword: string;
@@ -16,7 +14,7 @@ export interface AuthResponse {
   access_token: string;
   token_type: string;
   user: {
-    id?: number; // Может быть, если возвращается из бэкенда
+    id?: number;
     name: string;
     email: string;
   };
@@ -40,11 +38,19 @@ export interface MainAppProps {
   onLogout: () => void;
 }
 
+export interface DetectedObject {
+  class: string;
+  confidence: number;
+  bbox: number[];
+}
 
 export interface ImageData {
   id: number;
   filename: string;
   original_name: string;
   created_at: string;
+  url: string;
+  processed: boolean;
+  detected_objects?: DetectedObject[];
+  detected_count: number;
 }
-
