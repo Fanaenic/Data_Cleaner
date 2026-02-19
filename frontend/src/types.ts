@@ -1,3 +1,5 @@
+export type Role = "guest" | "free_user" | "pro_user" | "admin";
+
 export interface LoginFormData {
   email: string;
   password: string;
@@ -17,6 +19,8 @@ export interface AuthResponse {
     id?: number;
     name: string;
     email: string;
+    role: Role;
+    upload_count?: number;
   };
 }
 
@@ -26,7 +30,18 @@ export interface UserData {
     id?: number;
     name: string;
     email: string;
+    role: Role;
+    upload_count?: number;
   };
+}
+
+export interface AdminUser {
+  id: number;
+  email: string;
+  username: string;
+  name: string;
+  role: string;
+  created_at: string;
 }
 
 export interface AuthProps {

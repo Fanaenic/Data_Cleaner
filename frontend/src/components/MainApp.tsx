@@ -1,7 +1,9 @@
 // frontend/src/components/MainApp.tsx
 import React, { useState, useEffect } from 'react';
 import axios, { AxiosError } from 'axios';
-import { MainAppProps, ImageData } from '../types'; // Убрали UserData
+import { MainAppProps, ImageData } from '../types';
+import AdminPanel from './AdminPanel';
+import ProtectedRoute from './ProtectedRoute';
 import './MainApp.css';
 
 const API_BASE = 'http://localhost:8000';
@@ -18,8 +20,14 @@ interface ProcessedImageData extends ImageData {
   }>;
 }
 
+const FREE_USER_LIMIT = 3;
+
 const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'upload' | 'history'>('upload');
+  const isAdmin = user.user.role === 'admin';
+  const isFreeUser = user.user.role === 'free_user';
+  const [uploadCount, setUploadCount] = useState<number>(user.user.upload_count ?? 0);
+  const isLimitReached = isFreeUser && uploadCount >= FREE_USER_LIMIT;
+  const [activeTab, setActiveTab] = useState<'upload' | 'history' | 'admin'>('upload');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [processedUrl, setProcessedUrl] = useState<string | null>(null);
@@ -27,7 +35,6 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [history, setHistory] = useState<ProcessedImageData[]>([]);
   const [processingType, setProcessingType] = useState<'blur' | 'pixelate' | 'none'>('blur');
-  const [detectionInfo, setDetectionInfo] = useState<string>('');
 
   const fetchHistory = async () => {
     try {
@@ -54,11 +61,9 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
     setSelectedFile(file);
     setUploadMessage(null);
     setProcessedUrl(null);
-    setDetectionInfo('');
 
     if (file) {
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
+      setPreviewUrl(URL.createObjectURL(file));
     } else {
       setPreviewUrl(null);
     }
@@ -108,8 +113,11 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
         detectionText = 'ℹ️ Объекты для анонимизации не обнаружены';
       }
 
-      setDetectionInfo(detectionText);
       setUploadMessage(`✅ Изображение успешно обработано! ${detectionText}`);
+
+      if (isFreeUser) {
+        setUploadCount(prev => prev + 1);
+      }
 
       // Показываем обработанное изображение
       if (data.url) {
@@ -125,6 +133,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
           msg = '❌ Сессия истекла. Войдите снова.';
           localStorage.removeItem('token');
           onLogout();
+        } else if (err.response?.status === 403) {
+          msg = `❌ ${err.response.data?.detail || 'Лимит загрузок исчерпан. Обновите тариф.'}`;
         } else if (err.response?.status === 400) {
           msg = `❌ ${err.response.data?.detail || 'Неверный формат файла'}`;
         } else {
@@ -144,6 +154,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
           <h1>🤖 DataCleaner AI</h1>
           <div className="user-info">
             <span>Добро пожаловать, {user.user.name}!</span>
+            <span className={`role-tag role-${user.user.role}`}>{user.user.role}</span>
             <button onClick={onLogout} className="logout-btn">Выйти</button>
           </div>
         </div>
@@ -162,6 +173,14 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
         >
           📋 История изображений
         </button>
+        {isAdmin && (
+          <button
+            className={`nav-btn ${activeTab === 'admin' ? 'active' : ''}`}
+            onClick={() => setActiveTab('admin')}
+          >
+            Управление пользователями
+          </button>
+        )}
       </nav>
 
       <main className="app-content">
@@ -197,20 +216,29 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
               </div>
             </div>
 
+            {isFreeUser && (
+              <div className={`upload-limit-info ${isLimitReached ? 'limit-reached' : ''}`}>
+                {isLimitReached
+                  ? '❌ Лимит загрузок исчерпан. Обновитесь до Pro.'
+                  : `📊 Осталось загрузок: ${FREE_USER_LIMIT - uploadCount} / ${FREE_USER_LIMIT}`}
+              </div>
+            )}
+
             <div className="demo-buttons">
-              <label className="demo-btn primary" style={{ cursor: 'pointer' }}>
+              <label className="demo-btn primary" style={{ cursor: isLimitReached ? 'not-allowed' : 'pointer', opacity: isLimitReached ? 0.5 : 1 }}>
                 📁 Выбрать файл
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleFileChange}
+                  disabled={isLimitReached}
                   style={{ display: 'none' }}
                 />
               </label>
               <button
                 className="demo-btn secondary"
                 onClick={handleUpload}
-                disabled={!selectedFile || uploading}
+                disabled={!selectedFile || uploading || isLimitReached}
               >
                 {uploading ? '🤖 Обработка AI...' : '🚀 Обработать изображение'}
               </button>
@@ -282,10 +310,16 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
           </div>
         )}
 
+        {activeTab === 'admin' && (
+          <ProtectedRoute role={user.user.role} allowedRoles={['admin']}>
+            <AdminPanel token={user.token} />
+          </ProtectedRoute>
+        )}
+
         {activeTab === 'history' && (
           <div className="history-section">
             <h2>📋 История обработки</h2>
-            <p>Ваши загруженные и обработанные изображения</p>
+            <p>{isAdmin ? 'Все изображения всех пользователей' : 'Ваши загруженные и обработанные изображения'}</p>
 
             {history.length === 0 ? (
               <p style={{ textAlign: 'center', color: '#666' }}>Нет загруженных изображений</p>

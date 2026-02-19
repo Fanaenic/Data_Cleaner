@@ -15,6 +15,12 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here-change-in-production"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
+# === Дефолтный admin (задаётся через переменные окружения) ===
+DEFAULT_ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@datacleaner.com")
+DEFAULT_ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+DEFAULT_ADMIN_NAME = os.getenv("ADMIN_NAME", "Administrator")
+DEFAULT_ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+
 # === БД ===
 SQLITE_DATABASE_URL = "sqlite:///./auth.db"
 engine = create_engine(

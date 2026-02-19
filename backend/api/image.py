@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Query
 from sqlalchemy.orm import Session
 import logging
+import json
 
 from core import get_db, oauth2_scheme
 from services import AuthService, ImageService
@@ -35,6 +36,8 @@ async def upload_image(
 
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Ошибка загрузки изображения: {e}")
         raise HTTPException(
@@ -48,7 +51,11 @@ async def get_user_images(
         token: str = Depends(oauth2_scheme),
         db: Session = Depends(get_db)
 ):
-    """Получение всех изображений пользователя"""
+    """
+    Получение изображений.
+    - admin: видит все изображения всех пользователей
+    - user: видит только свои изображения
+    """
     current_user = AuthService.get_current_user(token, db)
     return ImageService.get_user_images(current_user, db)
 
@@ -64,18 +71,18 @@ async def get_image(
 
     from models.image import Image
 
-    image = db.query(Image).filter(
-        Image.id == image_id,
-        Image.user_id == current_user.id
-    ).first()
+    # admin видит любое изображение, user только своё
+    query = db.query(Image).filter(Image.id == image_id)
+    if current_user.role != 'admin':
+        query = query.filter(Image.user_id == current_user.id)
+
+    image = query.first()
 
     if not image:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Image not found"
         )
-
-    import json
 
     detected_objects = []
     if hasattr(image, 'detected_objects') and image.detected_objects:
@@ -102,6 +109,10 @@ async def delete_image(
         token: str = Depends(oauth2_scheme),
         db: Session = Depends(get_db)
 ):
-    """Удаление изображения"""
+    """
+    Удаление изображения.
+    - admin: может удалить любое изображение
+    - user: только своё
+    """
     current_user = AuthService.get_current_user(token, db)
     return ImageService.delete_image(image_id, current_user, db)

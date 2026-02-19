@@ -5,9 +5,9 @@ from sqlalchemy.orm import Session
 from jwt.exceptions import InvalidTokenError
 import jwt
 from datetime import datetime, timedelta
-from core import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES  # Измените
-from models.user import User  # Измените с backend.models
-from schemas.user import UserCreate, UserResponse  # Измените с backend.schemas
+from core import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from models.user import User
+from schemas.user import UserCreate, UserResponse
 
 ph = PasswordHasher()
 
@@ -41,12 +41,17 @@ class AuthService:
                     detail="Username already taken"
                 )
 
+        # Bootstrap: первый пользователь без роли admin становится admin
+        admin_exists = db.query(User).filter(User.role == 'admin').first()
+        role = 'free_user' if admin_exists else 'admin'
+
         hashed_password = AuthService.hash_password(user.password)
         db_user = User(
             email=user.email,
             username=user.username,
             name=user.name,
-            hashed_password=hashed_password
+            hashed_password=hashed_password,
+            role=role
         )
 
         db.add(db_user)
@@ -58,6 +63,8 @@ class AuthService:
             email=db_user.email,
             username=db_user.username,
             name=db_user.name,
+            role=db_user.role,
+            upload_count=db_user.upload_count,
             created_at=db_user.created_at.isoformat()
         )
 
@@ -74,6 +81,8 @@ class AuthService:
             email=user.email,
             username=user.username,
             name=user.name,
+            role=user.role,
+            upload_count=user.upload_count,
             created_at=user.created_at.isoformat()
         )
 

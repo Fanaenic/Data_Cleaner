@@ -1,11 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
-class DetectedObject(BaseModel):
-    class_name: str
-    confidence: float
-    bbox: List[int]
-
 class ImageResponse(BaseModel):
     id: int
     filename: str

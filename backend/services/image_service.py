@@ -9,6 +9,7 @@ import json
 
 from core import UPLOADS_DIR
 from models.image import Image as ImageModel
+from models.user import User
 from schemas.image import ImageResponse
 from .ai_service import ai_service
 
@@ -42,6 +43,13 @@ class ImageService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"File size exceeds {MAX_SIZE // 1024 // 1024}MB limit"
+            )
+
+        # Проверка лимита загрузок для free_user
+        if current_user.role == 'free_user' and current_user.upload_count >= 3:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Upload limit reached. Upgrade to Pro."
             )
 
         # Генерация уникального имени
@@ -103,6 +111,13 @@ class ImageService:
         db.commit()
         db.refresh(db_image)
 
+        # Увеличиваем счётчик загрузок для free_user
+        if current_user.role == 'free_user':
+            db_user = db.query(User).filter(User.id == current_user.id).first()
+            if db_user:
+                db_user.upload_count += 1
+                db.commit()
+
         # Формируем URL
         image_url = f"/uploads/{processed_filename}"
 
@@ -119,7 +134,11 @@ class ImageService:
 
     @staticmethod
     def get_user_images(current_user, db: Session):
-        images = db.query(ImageModel).filter(ImageModel.user_id == current_user.id).all()
+        # admin видит все изображения, user только свои
+        if getattr(current_user, 'role', 'user') == 'admin':
+            images = db.query(ImageModel).order_by(ImageModel.id.desc()).all()
+        else:
+            images = db.query(ImageModel).filter(ImageModel.user_id == current_user.id).all()
 
         result = []
         for img in images:
@@ -146,11 +165,12 @@ class ImageService:
 
     @staticmethod
     def delete_image(image_id: int, current_user, db: Session):
-        """Удаление изображения"""
-        image = db.query(ImageModel).filter(
-            ImageModel.id == image_id,
-            ImageModel.user_id == current_user.id
-        ).first()
+        """Удаление изображения. admin может удалить любое, user только своё."""
+        query = db.query(ImageModel).filter(ImageModel.id == image_id)
+        if getattr(current_user, 'role', 'user') != 'admin':
+            query = query.filter(ImageModel.user_id == current_user.id)
+
+        image = query.first()
 
         if not image:
             raise HTTPException(

@@ -1,23 +1,77 @@
 import os
 import sys
+import logging
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from datetime import datetime
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy.orm import Session
-from jwt.exceptions import InvalidTokenError
-import jwt
+from sqlalchemy import text
 
 from api import router
-from core import engine, Base, SECRET_KEY, ALGORITHM, oauth2_scheme, get_db, UPLOADS_DIR
+from core import (engine, Base, UPLOADS_DIR, SessionLocal,
+                  DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_USERNAME,
+                  DEFAULT_ADMIN_NAME, DEFAULT_ADMIN_PASSWORD)
 from models import User
-from schemas.user import UserResponse
 from services import AuthService
+from dependencies import get_current_user, require_role
 
 Base.metadata.create_all(bind=engine)
+
+# Миграция: добавляем колонку role если её ещё нет
+with engine.connect() as conn:
+    try:
+        conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'user' NOT NULL"))
+        conn.commit()
+    except Exception:
+        pass  # Колонка уже существует
+
+# Миграция: добавляем колонку upload_count если её ещё нет
+with engine.connect() as conn:
+    try:
+        conn.execute(text("ALTER TABLE users ADD COLUMN upload_count INTEGER DEFAULT 0 NOT NULL"))
+        conn.commit()
+    except Exception:
+        pass  # Колонка уже существует
+
+# Миграция: переименовываем роль 'user' -> 'free_user'
+with engine.connect() as conn:
+    conn.execute(text("UPDATE users SET role='free_user' WHERE role='user'"))
+    conn.commit()
+
+
+def create_default_admin() -> None:
+    """Создаёт admin-пользователя при старте, если ни одного admin ещё нет."""
+    db = SessionLocal()
+    try:
+        admin_exists = db.query(User).filter(User.role == 'admin').first()
+        if admin_exists:
+            return
+
+        hashed_password = AuthService.hash_password(DEFAULT_ADMIN_PASSWORD)
+        admin = User(
+            email=DEFAULT_ADMIN_EMAIL,
+            username=DEFAULT_ADMIN_USERNAME,
+            name=DEFAULT_ADMIN_NAME,
+            hashed_password=hashed_password,
+            role='admin'
+        )
+        db.add(admin)
+        db.commit()
+        logging.getLogger(__name__).info(
+            f"Default admin created: email={DEFAULT_ADMIN_EMAIL}, password={DEFAULT_ADMIN_PASSWORD}"
+        )
+    finally:
+        db.close()
+
+
+create_default_admin()
+
+# Делаем get_current_user и require_role доступными через AuthService
+# (используется в api/image.py)
+AuthService.get_current_user = staticmethod(get_current_user)
+AuthService.require_role = staticmethod(require_role)
 
 app = FastAPI(title="DataCleaner API", version="1.0.0")
 
@@ -29,48 +83,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UPLOADS_DIR.mkdir(exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
-
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> UserResponse:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-    except InvalidTokenError:
-        raise credentials_exception
-
-    user = db.query(User).filter(User.email == email).first()
-    if user is None:
-        raise credentials_exception
-
-    return UserResponse(
-        id=user.id,
-        email=user.email,
-        username=user.username,
-        name=user.name,
-        created_at=user.created_at.isoformat()
-    )
-
-AuthService.get_current_user = staticmethod(get_current_user)
 
 app.include_router(router)
 
-# ДОБАВЬТЕ ЭТИ ЭНДПОИНТЫ
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "datacleaner"}
 
+
 @app.get("/profile")
-async def get_profile(current_user = Depends(get_current_user)):
+async def get_profile(current_user=Depends(get_current_user)):
     """Получить профиль текущего пользователя"""
     return current_user
+
 
 if __name__ == "__main__":
     import uvicorn
