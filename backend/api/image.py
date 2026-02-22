@@ -3,9 +3,11 @@ from sqlalchemy.orm import Session
 import logging
 import json
 
-from core import get_db, oauth2_scheme
-from services import AuthService, ImageService
+from core import get_db
+from services import ImageService
 from schemas.image import ImageResponse
+from schemas.user import UserResponse
+from dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -15,15 +17,13 @@ router = APIRouter()
 async def upload_image(
         file: UploadFile = File(...),
         process_type: str = Query("blur", description="Тип обработки: blur, pixelate, none"),
-        token: str = Depends(oauth2_scheme),
+        current_user: UserResponse = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
     """
     Загрузка изображения с AI обработкой
     """
     try:
-        current_user = AuthService.get_current_user(token, db)
-
         logger.info(f"Загрузка изображения от пользователя {current_user.email}")
         logger.info(f"Тип обработки: {process_type}")
 
@@ -48,7 +48,7 @@ async def upload_image(
 
 @router.get("/", response_model=list[ImageResponse])
 async def get_user_images(
-        token: str = Depends(oauth2_scheme),
+        current_user: UserResponse = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
     """
@@ -56,19 +56,16 @@ async def get_user_images(
     - admin: видит все изображения всех пользователей
     - user: видит только свои изображения
     """
-    current_user = AuthService.get_current_user(token, db)
     return ImageService.get_user_images(current_user, db)
 
 
 @router.get("/{image_id}", response_model=ImageResponse)
 async def get_image(
         image_id: int,
-        token: str = Depends(oauth2_scheme),
+        current_user: UserResponse = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
     """Получение конкретного изображения"""
-    current_user = AuthService.get_current_user(token, db)
-
     from models.image import Image
 
     # admin видит любое изображение, user только своё
@@ -106,7 +103,7 @@ async def get_image(
 @router.delete("/{image_id}")
 async def delete_image(
         image_id: int,
-        token: str = Depends(oauth2_scheme),
+        current_user: UserResponse = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
     """
@@ -114,5 +111,4 @@ async def delete_image(
     - admin: может удалить любое изображение
     - user: только своё
     """
-    current_user = AuthService.get_current_user(token, db)
     return ImageService.delete_image(image_id, current_user, db)

@@ -15,7 +15,7 @@ from core import (engine, Base, UPLOADS_DIR, SessionLocal,
                   DEFAULT_ADMIN_NAME, DEFAULT_ADMIN_PASSWORD)
 from models import User
 from services import AuthService
-from dependencies import get_current_user, require_role
+from dependencies import get_current_user
 
 Base.metadata.create_all(bind=engine)
 
@@ -67,11 +67,6 @@ def create_default_admin() -> None:
 
 
 create_default_admin()
-
-# Делаем get_current_user и require_role доступными через AuthService
-# (используется в api/image.py)
-AuthService.get_current_user = staticmethod(get_current_user)
-AuthService.require_role = staticmethod(require_role)
 
 app = FastAPI(title="DataCleaner API", version="1.0.0")
 

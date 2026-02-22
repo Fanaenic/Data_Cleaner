@@ -1,15 +1,25 @@
-version: '3.8'
-
 services:
   backend:
     build: ./backend
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      - ./backend:/app          # bind mount для hot-reload кода
+      - db_data:/data           # named volume для SQLite БД (очищается при down -v)
     environment:
-      - SECRET_KEY=supersecretkey123
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_NAME=${ADMIN_NAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   frontend:
     build: ./frontend
@@ -19,6 +29,10 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_API_URL=${REACT_APP_API_URL}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+
+volumes:
+  db_data:    # именованный volume — удаляется при `docker compose down -v`

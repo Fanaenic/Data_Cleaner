@@ -1,15 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import api from '../api';
 import { AdminUser } from '../types';
 import './AdminPanel.css';
 
-const API_BASE = 'http://localhost:8000';
-
-interface AdminPanelProps {
-  token: string;
-}
-
-const AdminPanel: React.FC<AdminPanelProps> = ({ token }) => {
+const AdminPanel: React.FC = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [message, setMessage] = useState<string>('');
@@ -17,34 +12,38 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ token }) => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await axios.get<AdminUser[]>(`${API_BASE}/admin/users`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.get<AdminUser[]>('/admin/users');
         setUsers(response.data);
       } catch (err) {
-        setMessage('Ошибка загрузки пользователей');
+        if (axios.isAxiosError(err)) {
+          setMessage(
+            err.response?.status === 403
+              ? 'Доступ запрещён. Недостаточно прав.'
+              : 'Ошибка загрузки пользователей'
+          );
+        } else {
+          setMessage('Ошибка загрузки пользователей');
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchUsers();
-  }, [token]);
+  }, []);
 
   const handleRoleChange = async (userId: number, newRole: string) => {
     try {
-      await axios.put(
-        `${API_BASE}/admin/users/${userId}/role`,
-        { role: newRole },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.put(`/admin/users/${userId}/role`, { role: newRole });
       setMessage(`Роль пользователя изменена на "${newRole}"`);
-      setUsers(prev =>
-        prev.map(u => (u.id === userId ? { ...u, role: newRole } : u))
-      );
+      setUsers(prev => prev.map(u => (u.id === userId ? { ...u, role: newRole } : u)));
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
-      setMessage('Ошибка изменения роли');
+      if (axios.isAxiosError(err)) {
+        setMessage(err.response?.data?.detail || 'Ошибка изменения роли');
+      } else {
+        setMessage('Ошибка изменения роли');
+      }
     }
   };
 
@@ -55,10 +54,12 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ token }) => {
   return (
     <div className="admin-panel">
       <h2>Управление пользователями</h2>
-      <p className="admin-desc">Список всех пользователей системы. Изменение ролей доступно только администратору.</p>
+      <p className="admin-desc">
+        Список всех пользователей системы. Изменение ролей доступно только администратору.
+      </p>
 
       {message && (
-        <div className={`admin-message ${message.startsWith('Ошибка') ? 'error' : 'success'}`}>
+        <div className={`admin-message ${message.startsWith('Ошибка') || message.startsWith('Доступ') ? 'error' : 'success'}`}>
           {message}
         </div>
       )}
@@ -84,9 +85,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ token }) => {
                 <td>{user.email}</td>
                 <td>{user.username}</td>
                 <td>
-                  <span className={`role-badge role-${user.role}`}>
-                    {user.role}
-                  </span>
+                  <span className={`role-badge role-${user.role}`}>{user.role}</span>
                 </td>
                 <td>{new Date(user.created_at).toLocaleString('ru-RU')}</td>
                 <td>

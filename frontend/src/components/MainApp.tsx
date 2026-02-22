@@ -1,14 +1,12 @@
 // frontend/src/components/MainApp.tsx
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios, { AxiosError } from 'axios';
+import api, { API_BASE } from '../api';
 import { MainAppProps, ImageData } from '../types';
 import AdminPanel from './AdminPanel';
-import ProtectedRoute from './ProtectedRoute';
 import './MainApp.css';
 
-const API_BASE = 'http://localhost:8000';
-
-// Расширяем типы
 interface ProcessedImageData extends ImageData {
   url: string;
   processed: boolean;
@@ -23,11 +21,21 @@ interface ProcessedImageData extends ImageData {
 const FREE_USER_LIMIT = 3;
 
 const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const isAdmin = user.user.role === 'admin';
   const isFreeUser = user.user.role === 'free_user';
+
+  // Активная вкладка определяется из URL
+  const activeTab: 'upload' | 'history' | 'admin' =
+    location.pathname === '/history' ? 'history' :
+    location.pathname === '/admin' ? 'admin' :
+    'upload';
+
   const [uploadCount, setUploadCount] = useState<number>(user.user.upload_count ?? 0);
   const isLimitReached = isFreeUser && uploadCount >= FREE_USER_LIMIT;
-  const [activeTab, setActiveTab] = useState<'upload' | 'history' | 'admin'>('upload');
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [processedUrl, setProcessedUrl] = useState<string | null>(null);
@@ -38,12 +46,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
 
   const fetchHistory = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      const response = await axios.get<ProcessedImageData[]>(`${API_BASE}/image/`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get<ProcessedImageData[]>('/image/');
       setHistory(response.data);
     } catch (err) {
       console.error('Failed to load history:', err);
@@ -61,12 +64,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
     setSelectedFile(file);
     setUploadMessage(null);
     setProcessedUrl(null);
-
-    if (file) {
-      setPreviewUrl(URL.createObjectURL(file));
-    } else {
-      setPreviewUrl(null);
-    }
+    setPreviewUrl(file ? URL.createObjectURL(file) : null);
   };
 
   const handleUpload = async () => {
@@ -75,39 +73,28 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
       return;
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setUploadMessage('❌ Токен отсутствует. Войдите заново.');
-      return;
-    }
-
     const formData = new FormData();
     formData.append('file', selectedFile);
-
-    const url = `${API_BASE}/image/?process_type=${processingType}`;
 
     setUploading(true);
     setUploadMessage(null);
 
     try {
-      const response = await axios.post<ProcessedImageData>(url, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      const response = await api.post<ProcessedImageData>(
+        `/image/?process_type=${processingType}`,
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
 
       const data = response.data;
 
-      // Формируем информацию о детекции
       let detectionText = '';
       if (data.detected_count > 0) {
         detectionText = `✅ Обнаружено объектов: ${data.detected_count}`;
-        if (data.detected_objects && data.detected_objects.length > 0) {
-          const objectsList = data.detected_objects.map(obj =>
-            `${obj.class} (${(obj.confidence * 100).toFixed(1)}%)`
-          ).join(', ');
-          detectionText += `: ${objectsList}`;
+        if (data.detected_objects?.length) {
+          detectionText += `: ${data.detected_objects.map(o =>
+            `${o.class} (${(o.confidence * 100).toFixed(1)}%)`
+          ).join(', ')}`;
         }
       } else {
         detectionText = 'ℹ️ Объекты для анонимизации не обнаружены';
@@ -119,7 +106,6 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
         setUploadCount(prev => prev + 1);
       }
 
-      // Показываем обработанное изображение
       if (data.url) {
         setProcessedUrl(`${API_BASE}${data.url}`);
       }
@@ -163,20 +149,20 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
       <nav className="app-nav">
         <button
           className={`nav-btn ${activeTab === 'upload' ? 'active' : ''}`}
-          onClick={() => setActiveTab('upload')}
+          onClick={() => navigate('/upload')}
         >
           📤 Загрузить изображение
         </button>
         <button
           className={`nav-btn ${activeTab === 'history' ? 'active' : ''}`}
-          onClick={() => setActiveTab('history')}
+          onClick={() => navigate('/history')}
         >
           📋 История изображений
         </button>
         {isAdmin && (
           <button
             className={`nav-btn ${activeTab === 'admin' ? 'active' : ''}`}
-            onClick={() => setActiveTab('admin')}
+            onClick={() => navigate('/admin')}
           >
             Управление пользователями
           </button>
@@ -189,7 +175,6 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
             <h2>🤖 AI Анонимизация изображений</h2>
             <p>Загрузите фото для автоматического размытия лиц</p>
 
-            {/* Выбор типа обработки */}
             <div style={{ marginBottom: '20px', textAlign: 'center' }}>
               <h3 style={{ marginBottom: '10px', fontSize: '16px' }}>Метод обработки:</h3>
               <div className="demo-buttons" style={{ marginBottom: '15px' }}>
@@ -198,7 +183,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
                   onClick={() => setProcessingType('blur')}
                   style={{
                     backgroundColor: processingType === 'blur' ? '#28a745' : 'white',
-                    color: processingType === 'blur' ? 'white' : '#333'
+                    color: processingType === 'blur' ? 'white' : '#333',
                   }}
                 >
                   🔍 Размытие
@@ -208,7 +193,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
                   onClick={() => setProcessingType('none')}
                   style={{
                     backgroundColor: processingType === 'none' ? '#28a745' : 'white',
-                    color: processingType === 'none' ? 'white' : '#333'
+                    color: processingType === 'none' ? 'white' : '#333',
                   }}
                 >
                   📷 Без обработки
@@ -225,7 +210,10 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
             )}
 
             <div className="demo-buttons">
-              <label className="demo-btn primary" style={{ cursor: isLimitReached ? 'not-allowed' : 'pointer', opacity: isLimitReached ? 0.5 : 1 }}>
+              <label
+                className="demo-btn primary"
+                style={{ cursor: isLimitReached ? 'not-allowed' : 'pointer', opacity: isLimitReached ? 0.5 : 1 }}
+              >
                 📁 Выбрать файл
                 <input
                   type="file"
@@ -254,7 +242,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
             )}
 
             <div className="demo-placeholder">
-              {previewUrl && (
+              {previewUrl ? (
                 <div className="placeholder-image" style={{ position: 'relative' }}>
                   <img
                     src={previewUrl}
@@ -262,20 +250,18 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                   />
                   <div style={{
-                    position: 'absolute',
-                    bottom: '5px',
-                    left: '5px',
-                    backgroundColor: 'rgba(0,0,0,0.7)',
-                    color: 'white',
-                    padding: '3px 8px',
-                    borderRadius: '4px',
-                    fontSize: '12px'
+                    position: 'absolute', bottom: '5px', left: '5px',
+                    backgroundColor: 'rgba(0,0,0,0.7)', color: 'white',
+                    padding: '3px 8px', borderRadius: '4px', fontSize: '12px',
                   }}>
                     Исходное
                   </div>
                 </div>
+              ) : (
+                <div className="placeholder-image">🖼️ Исходное изображение</div>
               )}
-              {processedUrl && (
+
+              {processedUrl ? (
                 <div className="placeholder-image" style={{ position: 'relative' }}>
                   <img
                     src={processedUrl}
@@ -283,43 +269,30 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                   />
                   <div style={{
-                    position: 'absolute',
-                    bottom: '5px',
-                    left: '5px',
-                    backgroundColor: 'rgba(0,123,255,0.7)',
-                    color: 'white',
-                    padding: '3px 8px',
-                    borderRadius: '4px',
-                    fontSize: '12px'
+                    position: 'absolute', bottom: '5px', left: '5px',
+                    backgroundColor: 'rgba(0,123,255,0.7)', color: 'white',
+                    padding: '3px 8px', borderRadius: '4px', fontSize: '12px',
                   }}>
                     Обработанное
                   </div>
                 </div>
-              )}
-              {!previewUrl && !processedUrl && (
-                <>
-                  <div className="placeholder-image">
-                    🖼️ Исходное изображение
-                  </div>
-                  <div className="placeholder-image">
-                    ✅ Обработанное AI
-                  </div>
-                </>
+              ) : (
+                <div className="placeholder-image">✅ Обработанное AI</div>
               )}
             </div>
           </div>
         )}
 
-        {activeTab === 'admin' && (
-          <ProtectedRoute role={user.user.role} allowedRoles={['admin']}>
-            <AdminPanel token={user.token} />
-          </ProtectedRoute>
-        )}
+        {activeTab === 'admin' && <AdminPanel />}
 
         {activeTab === 'history' && (
           <div className="history-section">
             <h2>📋 История обработки</h2>
-            <p>{isAdmin ? 'Все изображения всех пользователей' : 'Ваши загруженные и обработанные изображения'}</p>
+            <p>
+              {isAdmin
+                ? 'Все изображения всех пользователей'
+                : 'Ваши загруженные и обработанные изображения'}
+            </p>
 
             {history.length === 0 ? (
               <p style={{ textAlign: 'center', color: '#666' }}>Нет загруженных изображений</p>
@@ -331,14 +304,10 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
                       <img
                         src={`${API_BASE}${img.url}`}
                         alt={img.original_name}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          borderRadius: '4px'
-                        }}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }}
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24"><text x="12" y="12" font-size="10" text-anchor="middle" fill="lightgray">🖼️</text></svg>';
+                          (e.target as HTMLImageElement).src =
+                            'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24"><text x="12" y="12" font-size="10" text-anchor="middle" fill="lightgray">🖼️</text></svg>';
                         }}
                       />
                     </div>
@@ -353,16 +322,15 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
                     </div>
                     <button
                       className="action-btn"
+                      style={{ backgroundColor: '#28a745' }}
                       onClick={() => {
-                        const imageUrl = `${API_BASE}${img.url}`;
                         const link = document.createElement('a');
-                        link.href = imageUrl;
+                        link.href = `${API_BASE}${img.url}`;
                         link.download = img.original_name;
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
                       }}
-                      style={{ backgroundColor: '#28a745' }}
                     >
                       📥 Скачать
                     </button>

@@ -1,10 +1,9 @@
 // src/components/Auth.tsx
 import React, { useState } from 'react';
 import axios from 'axios';
-import { AuthProps, LoginFormData, RegisterFormData, AuthResponse, UserData } from '../types';
+import api from '../api';
+import { AuthProps, LoginFormData, RegisterFormData, AuthResponse } from '../types';
 import './Auth.css';
-
-const API_BASE = 'http://localhost:8000';
 
 const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [activeForm, setActiveForm] = useState<'login' | 'register'>('login');
@@ -13,14 +12,14 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
   const [loginData, setLoginData] = useState<LoginFormData>({
     email: '',
-    password: ''
+    password: '',
   });
 
   const [registerData, setRegisterData] = useState<RegisterFormData>({
     name: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
   });
 
   const switchForm = (formName: 'login' | 'register'): void => {
@@ -34,44 +33,28 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     setMessage('');
 
     try {
-      const response = await axios.post<AuthResponse>(`${API_BASE}/auth/login`, {
+      const response = await api.post<AuthResponse>('/auth/login', {
         email: loginData.email,
-        password: loginData.password
+        password: loginData.password,
       });
 
       const { access_token, user } = response.data;
-      localStorage.setItem('token', access_token);
       setMessage('✅ Вход выполнен успешно!');
-
-      const userData: UserData = {
-        token: access_token,
-        user: user
-      };
-
-      onLogin(userData);
+      onLogin({ token: access_token, user });
     } catch (error: unknown) {
-      console.error("Login error:", error);
-      let errorMessage = '❌ Ошибка входа: Неизвестная ошибка';
+      let errorMessage = '❌ Ошибка входа';
 
       if (axios.isAxiosError(error)) {
         if (error.response) {
-          const status = error.response.status;
-          const detail = error.response.data.detail || 'Неверный email или пароль';
-
-          if (status === 401) {
-            errorMessage = `❌ Ошибка входа: ${detail}`;
-          } else if (status >= 500) {
+          const detail = error.response.data?.detail || 'Неверный email или пароль';
+          if (error.response.status >= 500) {
             errorMessage = '❌ Ошибка сервера. Попробуйте позже.';
           } else {
-            errorMessage = `❌ Ошибка входа: ${detail}`;
+            errorMessage = `❌ ${detail}`;
           }
         } else if (error.request) {
-          errorMessage = '❌ Нет соединения с сервером. Проверьте подключение.';
-        } else {
-          errorMessage = `❌ Ошибка сети: ${error.message}`;
+          errorMessage = '❌ Нет соединения с сервером.';
         }
-      } else {
-        errorMessage = `❌ Ошибка: ${String(error)}`;
       }
 
       setMessage(errorMessage);
@@ -82,69 +65,52 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
   const handleRegisterSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
-    setLoading(true);
-    setMessage('');
 
     if (registerData.password !== registerData.confirmPassword) {
       setMessage('❌ Пароли не совпадают!');
-      setLoading(false);
       return;
     }
-
     if (registerData.password.length < 6) {
       setMessage('❌ Пароль должен содержать не менее 6 символов!');
-      setLoading(false);
       return;
     }
 
+    setLoading(true);
+    setMessage('');
+
     try {
-      // Передаём name, email, password и username = email
-      const response = await axios.post<AuthResponse>(`${API_BASE}/auth/register`, {
+      const response = await api.post<AuthResponse>('/auth/register', {
         name: registerData.name,
         email: registerData.email,
-        username: registerData.email, // ← обязательно для UserCreate
-        password: registerData.password
+        username: registerData.email,
+        password: registerData.password,
       });
 
       const { access_token, user } = response.data;
-      localStorage.setItem('token', access_token);
       setMessage('✅ Регистрация завершена! Вход выполнен.');
-
-      const userData: UserData = {
-        token: access_token,
-        user: user
-      };
-
-      onLogin(userData);
+      onLogin({ token: access_token, user });
     } catch (error: unknown) {
-      console.error("Registration error:", error);
-      let errorMessage = '❌ Ошибка регистрации: Неизвестная ошибка';
+      let errorMessage = '❌ Ошибка регистрации';
 
       if (axios.isAxiosError(error)) {
         if (error.response) {
-          const status = error.response.status;
-          const detail = error.response.data.detail || 'Ошибка сервера';
-
-          if (status === 400) {
-            if (detail === "Email already registered") {
+          const detail = error.response.data?.detail || 'Ошибка сервера';
+          if (error.response.status === 400) {
+            if (detail === 'Email already registered') {
               errorMessage = '❌ Пользователь с таким email уже зарегистрирован';
-            } else if (detail === "Username already taken") {
-              errorMessage = '❌ Пользователь с таким именем уже зарегистрирован';
+            } else if (detail === 'Username already taken') {
+              errorMessage = '❌ Пользователь с таким именем уже существует';
             } else {
-              errorMessage = `❌ Ошибка регистрации: ${detail}`;
+              errorMessage = `❌ ${detail}`;
             }
-          } else if (status >= 500) {
+          } else if (error.response.status >= 500) {
             errorMessage = '❌ Ошибка сервера. Попробуйте позже.';
           } else {
-            errorMessage = `❌ Ошибка регистрации: ${detail}`;
+            errorMessage = `❌ ${detail}`;
           }
         } else if (error.request) {
-          errorMessage = '❌ Нет соединения с сервером. Проверьте подключение.';
-        } else {
-          errorMessage = `❌ Ошибка сети: ${error.message}`;
+          errorMessage = '❌ Нет соединения с сервером.';
         }
-      } else {
-        errorMessage = `❌ Ошибка: ${String(error)}`;
       }
 
       setMessage(errorMessage);
@@ -272,9 +238,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
           <div className="checkbox-group">
             <input type="checkbox" id="agree-terms" required />
-            <label htmlFor="agree-terms">
-              Я согласен с условиями использования
-            </label>
+            <label htmlFor="agree-terms">Я согласен с условиями использования</label>
           </div>
 
           <button type="submit" className="auth-btn" disabled={loading}>
@@ -283,11 +247,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
           <div className="form-footer">
             Уже есть аккаунт?{' '}
-            <button
-              type="button"
-              className="switch-to-login"
-              onClick={() => switchForm('login')}
-            >
+            <button type="button" className="switch-to-login" onClick={() => switchForm('login')}>
               Войти
             </button>
           </div>

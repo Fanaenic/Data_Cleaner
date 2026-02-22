@@ -22,7 +22,9 @@ DEFAULT_ADMIN_NAME = os.getenv("ADMIN_NAME", "Administrator")
 DEFAULT_ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 
 # === БД ===
-SQLITE_DATABASE_URL = "sqlite:///./auth.db"
+# В Docker передаётся DATABASE_URL=sqlite:////data/auth.db (named volume)
+# При локальной разработке используется sqlite:///./auth.db (рядом с кодом)
+SQLITE_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./auth.db")
 engine = create_engine(
     SQLITE_DATABASE_URL,
     connect_args={"check_same_thread": False}
