@@ -13,7 +13,7 @@ from api import router
 from core import (engine, Base, UPLOADS_DIR, SessionLocal,
                   DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_USERNAME,
                   DEFAULT_ADMIN_NAME, DEFAULT_ADMIN_PASSWORD)
-from models import User
+from models import User, RefreshToken  # noqa: F401 — ensure table is registered
 from services import AuthService
 from dependencies import get_current_user
 

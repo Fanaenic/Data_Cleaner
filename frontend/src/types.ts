@@ -14,6 +14,7 @@ export interface RegisterFormData {
 
 export interface AuthResponse {
   access_token: string;
+  refresh_token: string;
   token_type: string;
   user: {
     id?: number;
@@ -26,6 +27,7 @@ export interface AuthResponse {
 
 export interface UserData {
   token: string;
+  refreshToken: string;
   user: {
     id?: number;
     name: string;

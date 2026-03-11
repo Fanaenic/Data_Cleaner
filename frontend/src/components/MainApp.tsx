@@ -141,7 +141,22 @@ const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
           <div className="user-info">
             <span>Добро пожаловать, {user.user.name}!</span>
             <span className={`role-tag role-${user.user.role}`}>{user.user.role}</span>
-            <button onClick={onLogout} className="logout-btn">Выйти</button>
+            <button
+              onClick={async () => {
+                const refreshToken = localStorage.getItem('refreshToken');
+                if (refreshToken) {
+                  try {
+                    await api.post('/auth/logout', { refresh_token: refreshToken });
+                  } catch {
+                    // Игнорируем ошибку — очищаем состояние в любом случае
+                  }
+                }
+                onLogout();
+              }}
+              className="logout-btn"
+            >
+              Выйти
+            </button>
           </div>
         </div>
       </header>

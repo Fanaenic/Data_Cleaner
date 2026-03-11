@@ -38,9 +38,9 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         password: loginData.password,
       });
 
-      const { access_token, user } = response.data;
+      const { access_token, refresh_token, user } = response.data;
       setMessage('✅ Вход выполнен успешно!');
-      onLogin({ token: access_token, user });
+      onLogin({ token: access_token, refreshToken: refresh_token, user });
     } catch (error: unknown) {
       let errorMessage = '❌ Ошибка входа';
 
@@ -86,9 +86,9 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         password: registerData.password,
       });
 
-      const { access_token, user } = response.data;
+      const { access_token, refresh_token, user } = response.data;
       setMessage('✅ Регистрация завершена! Вход выполнен.');
-      onLogin({ token: access_token, user });
+      onLogin({ token: access_token, refreshToken: refresh_token, user });
     } catch (error: unknown) {
       let errorMessage = '❌ Ошибка регистрации';
 

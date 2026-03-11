@@ -15,7 +15,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!token || !refreshToken) {
       setLoading(false);
       return;
     }
@@ -28,9 +29,10 @@ const App: React.FC = () => {
           id?: number;
           role: string;
           upload_count?: number;
-        }>('/profile');
+        }>('/auth/me');
         setUser({
           token,
+          refreshToken,
           user: {
             name: response.data.name,
             email: response.data.email,
@@ -41,6 +43,7 @@ const App: React.FC = () => {
         });
       } catch {
         localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
       } finally {
         setLoading(false);
       }
@@ -51,11 +54,13 @@ const App: React.FC = () => {
 
   const handleLogin = (userData: UserData): void => {
     localStorage.setItem('token', userData.token);
+    localStorage.setItem('refreshToken', userData.refreshToken);
     setUser(userData);
   };
 
   const handleLogout = (): void => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     setUser(null);
   };
 
