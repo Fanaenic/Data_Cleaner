@@ -70,4 +70,24 @@ export interface ImageData {
   processed: boolean;
   detected_objects?: DetectedObject[];
   detected_count: number;
+  s3_key?: string | null;
+}
+
+export interface PaginatedImageResponse {
+  items: ImageData[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+export interface ImageFilters {
+  search: string;
+  processed: string;       // "all" | "true" | "false"
+  date_from: string;
+  date_to: string;
+  sort_by: string;         // "created_at" | "original_name" | "detected_count"
+  sort_order: string;      // "asc" | "desc"
+  page: number;
+  limit: number;
 }

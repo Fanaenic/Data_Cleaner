@@ -22,6 +22,13 @@ DEFAULT_ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
 DEFAULT_ADMIN_NAME = os.getenv("ADMIN_NAME", "Administrator")
 DEFAULT_ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 
+# === S3 / MinIO объектное хранилище ===
+S3_ENDPOINT = os.getenv("S3_ENDPOINT", "http://localhost:9000")
+S3_PUBLIC_ENDPOINT = os.getenv("S3_PUBLIC_ENDPOINT", "http://localhost:9000")
+S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY", "minioadmin")
+S3_SECRET_KEY = os.getenv("S3_SECRET_KEY", "minioadmin")
+S3_BUCKET = os.getenv("S3_BUCKET", "datacleaner-images")
+
 # === БД ===
 # В Docker передаётся DATABASE_URL=sqlite:////data/auth.db (named volume)
 # При локальной разработке используется sqlite:///./auth.db (рядом с кодом)

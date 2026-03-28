@@ -40,6 +40,22 @@ with engine.connect() as conn:
     conn.execute(text("UPDATE users SET role='free_user' WHERE role='user'"))
     conn.commit()
 
+# Миграция: добавляем колонку detected_count если её ещё нет
+with engine.connect() as conn:
+    try:
+        conn.execute(text("ALTER TABLE images ADD COLUMN detected_count INTEGER DEFAULT 0 NOT NULL"))
+        conn.commit()
+    except Exception:
+        pass  # Колонка уже существует
+
+# Миграция: добавляем колонку s3_key если её ещё нет
+with engine.connect() as conn:
+    try:
+        conn.execute(text("ALTER TABLE images ADD COLUMN s3_key VARCHAR"))
+        conn.commit()
+    except Exception:
+        pass  # Колонка уже существует
+
 
 def create_default_admin() -> None:
     """Создаёт admin-пользователя при старте, если ни одного admin ещё нет."""

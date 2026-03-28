@@ -14,3 +14,7 @@ class Image(Base):
 
     processed = Column(Boolean, default=False)
     detected_objects = Column(Text)
+    detected_count = Column(Integer, default=0)
+
+    # S3 ключ файла (None для старых записей — используется локальный /uploads/)
+    s3_key = Column(String, nullable=True)
