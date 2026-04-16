@@ -1,8 +1,16 @@
 // src/components/Auth.tsx
+/**
+ * SEO-доработки (Лаб. 4):
+ *   2.1 — семантическая разметка: <main>, <section>, корректные h1/h2
+ *   2.3 — динамические мета-теги через SEOHead для страницы /login
+ *   2.5 — OG-теги для предпросмотра ссылок (через SEOHead)
+ *   3.4 — JSON-LD разметка (Organization/WebSite) для публичной страницы
+ */
 import React, { useState } from 'react';
 import axios from 'axios';
 import api from '../api';
 import { AuthProps, LoginFormData, RegisterFormData, AuthResponse } from '../types';
+import SEOHead from './SEOHead';
 import './Auth.css';
 
 const Auth: React.FC<AuthProps> = ({ onLogin }) => {
@@ -120,15 +128,38 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-box">
-        <div className="logo">DataCleaner</div>
+    <main className="auth-container" role="main">
+      {/* SEO: мета-теги для /login — публичная страница (задание 2.3, 2.5) */}
+      <SEOHead
+        title="Вход и регистрация"
+        description="Войдите в DataCleaner или создайте бесплатный аккаунт для анонимизации изображений с AI-распознаванием лиц."
+        canonical="http://localhost:3000/login"
+        noIndex={false}
+        ogTitle="DataCleaner — Вход и регистрация"
+        ogDescription="Войдите или зарегистрируйтесь бесплатно. AI-сервис анонимизации изображений с распознаванием лиц."
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'WebPage',
+          name: 'Вход и регистрация — DataCleaner',
+          description: 'Страница входа и регистрации в сервисе DataCleaner',
+          url: 'http://localhost:3000/login',
+          isPartOf: { '@type': 'WebSite', name: 'DataCleaner', url: 'http://localhost:3000' },
+        }}
+      />
 
-        <div className="form-toggle">
+      <section className="auth-box" aria-label={activeForm === 'login' ? 'Форма входа' : 'Форма регистрации'}>
+        {/* h1 — главный заголовок публичной страницы (задание 2.1) */}
+        <h1 className="logo">DataCleaner</h1>
+
+        <div className="form-toggle" role="tablist" aria-label="Переключение между входом и регистрацией">
           <button
             className={`toggle-btn ${activeForm === 'login' ? 'active' : ''}`}
             onClick={() => switchForm('login')}
             type="button"
+            role="tab"
+            aria-selected={activeForm === 'login'}
+            id="tab-login"
+            aria-controls="form-login"
           >
             Вход
           </button>
@@ -136,21 +167,33 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             className={`toggle-btn ${activeForm === 'register' ? 'active' : ''}`}
             onClick={() => switchForm('register')}
             type="button"
+            role="tab"
+            aria-selected={activeForm === 'register'}
+            id="tab-register"
+            aria-controls="form-register"
           >
             Регистрация
           </button>
         </div>
 
         {message && (
-          <div className={`auth-message ${message.startsWith('❌') ? 'error' : 'success'}`}>
+          <div
+            className={`auth-message ${message.startsWith('❌') ? 'error' : 'success'}`}
+            role="alert"
+            aria-live="assertive"
+          >
             {message}
           </div>
         )}
 
         <form
+          id="form-login"
           className={`auth-form ${activeForm === 'login' ? 'active' : ''}`}
           onSubmit={handleLoginSubmit}
+          role="tabpanel"
+          aria-labelledby="tab-login"
         >
+          {/* h2 — заголовок раздела формы (задание 2.1) */}
           <h2>Вход в аккаунт</h2>
 
           <div className="input-group">
@@ -183,8 +226,11 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         </form>
 
         <form
+          id="form-register"
           className={`auth-form ${activeForm === 'register' ? 'active' : ''}`}
           onSubmit={handleRegisterSubmit}
+          role="tabpanel"
+          aria-labelledby="tab-register"
         >
           <h2>Создание аккаунта</h2>
 
@@ -252,8 +298,8 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 };
 

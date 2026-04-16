@@ -1,10 +1,18 @@
 // src/App.tsx
+/**
+ * SEO-доработки (Лаб. 4):
+ *   - Маршруты /upload, /history, /admin — noindex (закрытые, задание 1.2)
+ *   - /login — индексируемая публичная страница (задание 1.1)
+ *   - Страница 404 (NotFound) вместо редиректа на неизвестных путях (задание 3.3)
+ *   - Canonical и мета-теги управляются через SEOHead внутри каждого компонента
+ */
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Auth from './components/Auth';
 import MainApp from './components/MainApp';
 import PrivateRoute from './components/PrivateRoute';
 import ProtectedRoute from './components/ProtectedRoute';
+import NotFound from './components/NotFound';
 import api from './api';
 import { UserData } from './types';
 import './App.css';
@@ -66,8 +74,8 @@ const App: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="loading-container">
-        <div className="loading-spinner">⏳</div>
+      <div className="loading-container" role="status" aria-label="Загрузка приложения">
+        <div className="loading-spinner" aria-hidden="true">⏳</div>
         <p>Загрузка...</p>
       </div>
     );
@@ -76,13 +84,13 @@ const App: React.FC = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Публичный маршрут — недоступен авторизованным */}
+        {/* ── Публичный маршрут — индексируется поисковиками (задание 1.1) ── */}
         <Route
           path="/login"
           element={user ? <Navigate to="/upload" replace /> : <Auth onLogin={handleLogin} />}
         />
 
-        {/* Приватные маршруты — только для авторизованных */}
+        {/* ── Приватные маршруты — noindex через SEOHead (задание 1.2) ──── */}
         <Route
           path="/upload"
           element={
@@ -100,7 +108,7 @@ const App: React.FC = () => {
           }
         />
 
-        {/* Ролевой маршрут — только для admin */}
+        {/* ── Ролевой маршрут — только для admin, noindex ──────────────── */}
         <Route
           path="/admin"
           element={
@@ -115,9 +123,11 @@ const App: React.FC = () => {
           }
         />
 
-        {/* Редиректы */}
+        {/* ── Редирект с корня ─────────────────────────────────────────── */}
         <Route path="/" element={<Navigate to={user ? '/upload' : '/login'} replace />} />
-        <Route path="*" element={<Navigate to={user ? '/upload' : '/login'} replace />} />
+
+        {/* ── 404 — показываем страницу ошибки (задание 3.3) ───────────── */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );

@@ -4,12 +4,16 @@ import logging
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy import text
 
 from api import router
+from api.seo import router as seo_router  # SEO: robots.txt, sitemap.xml, JSON-LD
 from core import (engine, Base, UPLOADS_DIR, SessionLocal,
                   DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_USERNAME,
                   DEFAULT_ADMIN_NAME, DEFAULT_ADMIN_PASSWORD)
@@ -84,7 +88,11 @@ def create_default_admin() -> None:
 
 create_default_admin()
 
-app = FastAPI(title="DataCleaner API", version="1.0.0")
+app = FastAPI(
+    title="DataCleaner API",
+    version="1.0.0",
+    description="API сервиса анонимизации изображений DataCleaner",
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -96,15 +104,58 @@ app.add_middleware(
 
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="uploads")
 
+# ── SEO роутер — монтируется без префикса (robots.txt, sitemap.xml на корне) ─
+app.include_router(seo_router)
+
+# ── Основной API роутер ───────────────────────────────────────────────────────
 app.include_router(router)
 
 
-@app.get("/health")
+# ── Обработчики HTTP-ошибок (задание 3.3) ────────────────────────────────────
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Единый обработчик HTTP-ошибок с корректными статусами и JSON-ответами."""
+    messages = {
+        400: "Некорректный запрос",
+        401: "Требуется аутентификация",
+        403: "Доступ запрещён",
+        404: "Ресурс не найден",
+        405: "Метод не разрешён",
+        410: "Ресурс удалён и более не доступен",
+        422: "Ошибка валидации данных",
+        429: "Слишком много запросов. Попробуйте позже",
+        500: "Внутренняя ошибка сервера",
+    }
+    detail = exc.detail if exc.detail else messages.get(exc.status_code, "Ошибка")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": detail,
+            "status_code": exc.status_code,
+            "path": str(request.url.path),
+        },
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Обработчик ошибок валидации Pydantic (422)."""
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": "Ошибка валидации входных данных",
+            "status_code": 422,
+            "errors": exc.errors(),
+        },
+    )
+
+
+@app.get("/health", tags=["system"])
 async def health_check():
     return {"status": "healthy", "service": "datacleaner"}
 
 
-@app.get("/profile")
+@app.get("/profile", tags=["system"])
 async def get_profile(current_user=Depends(get_current_user)):
     """Получить профиль текущего пользователя"""
     return current_user

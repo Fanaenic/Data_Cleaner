@@ -1,43 +1,111 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#2c3e50" />
+
+    <!-- ══════════════════════════════════════════════════
+         SEO: базовые мета-теги (задание 2.3)
+         Динамически переопределяются через SEOHead.tsx
+         ══════════════════════════════════════════════════ -->
     <meta
       name="description"
-      content="Web site created using create-react-app"
+      content="DataCleaner — сервис автоматической анонимизации изображений с AI-распознаванием лиц. Защитите персональные данные на фотографиях. Бесплатно до 3 изображений."
     />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
+    <meta
+      name="keywords"
+      content="анонимизация изображений, размытие лиц, AI обработка фото, защита персональных данных, GDPR, приватность, DataCleaner"
+    />
+    <meta name="author" content="DataCleaner" />
+    <!-- Базовые robots — переопределяется для закрытых страниц через SEOHead.tsx -->
+    <meta name="robots" content="index, follow" />
 
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
-    <title>React App</title>
+    <!-- ══════════════════════════════════════════════════
+         Canonical URL (задание 2.4) — базовый, динамически
+         обновляется через SEOHead.tsx для каждой страницы
+         ══════════════════════════════════════════════════ -->
+    <link rel="canonical" href="http://localhost:3000/" />
+
+    <!-- ══════════════════════════════════════════════════
+         Open Graph / Social Meta (задание 2.5)
+         ══════════════════════════════════════════════════ -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="http://localhost:3000/" />
+    <meta property="og:title" content="DataCleaner — AI Анонимизация изображений" />
+    <meta
+      property="og:description"
+      content="Автоматически размывайте лица и защищайте персональные данные на изображениях с помощью искусственного интеллекта. Бесплатно до 3 фото."
+    />
+    <meta property="og:image" content="%PUBLIC_URL%/logo192.png" />
+    <meta property="og:image:width" content="192" />
+    <meta property="og:image:height" content="192" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:site_name" content="DataCleaner" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="DataCleaner — AI Анонимизация изображений" />
+    <meta
+      name="twitter:description"
+      content="Автоматически размывайте лица с помощью AI. Защита персональных данных. Бесплатно до 3 изображений."
+    />
+    <meta name="twitter:image" content="%PUBLIC_URL%/logo192.png" />
+
+    <!-- ══════════════════════════════════════════════════
+         JSON-LD: структурированные данные (задание 3.4)
+         Тип WebSite + SoftwareApplication
+         ══════════════════════════════════════════════════ -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "http://localhost:3000/#website",
+            "url": "http://localhost:3000",
+            "name": "DataCleaner",
+            "description": "Сервис анонимизации изображений с AI-распознаванием лиц",
+            "inLanguage": "ru"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "http://localhost:3000/#software",
+            "name": "DataCleaner",
+            "description": "Сервис автоматической анонимизации изображений с AI-распознаванием лиц. Защита персональных данных на фотографиях.",
+            "url": "http://localhost:3000",
+            "applicationCategory": "MultimediaApplication",
+            "applicationSubCategory": "Privacy & Security",
+            "operatingSystem": "Web Browser",
+            "inLanguage": "ru",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "RUB",
+              "description": "Бесплатный тариф — до 3 изображений"
+            },
+            "featureList": [
+              "Автоматическое обнаружение лиц с помощью OpenCV AI",
+              "Размытие лиц на изображениях",
+              "Безопасное хранение в S3-совместимом облаке",
+              "Ролевая модель доступа"
+            ]
+          }
+        ]
+      }
+    </script>
+
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <title>DataCleaner — AI Анонимизация изображений</title>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <noscript>
+      Для работы приложения DataCleaner необходимо включить JavaScript.
+      DataCleaner — сервис анонимизации изображений с AI-распознаванием лиц.
+    </noscript>
     <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
   </body>
 </html>
