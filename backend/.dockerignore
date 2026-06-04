@@ -1,0 +1,32 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# Tests (не нужны в образе)
+tests/
+test_*.py
+requirements-test.txt
+
+# Logs and temp files
+*.log
+*.tmp
+uploads/
+backend.log
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Git
+.git/
+.gitignore

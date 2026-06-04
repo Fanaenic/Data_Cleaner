@@ -1,4 +1,10 @@
+# docker-compose.yml
+# Запуск: docker compose up --build
+# Остановка с очисткой томов: docker compose down -v
+
 services:
+
+  # ── MinIO — S3-совместимое объектное хранилище ───────────────────────────
   minio:
     image: minio/minio:latest
     ports:
@@ -12,21 +18,24 @@ services:
     command: server /data --console-address ":9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
       start_period: 10s
+    restart: unless-stopped
 
+  # ── Backend — FastAPI приложение ─────────────────────────────────────────
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app          # bind mount для hot-reload кода
-      - db_data:/data           # named volume для SQLite БД (очищается при down -v)
+      - db_data:/data
     environment:
       - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:////data/datacleaner.db}
       - ADMIN_EMAIL=${ADMIN_EMAIL}
       - ADMIN_USERNAME=${ADMIN_USERNAME}
       - ADMIN_NAME=${ADMIN_NAME}
@@ -37,29 +46,57 @@ services:
       - S3_ACCESS_KEY=${S3_ACCESS_KEY:-minioadmin}
       - S3_SECRET_KEY=${S3_SECRET_KEY:-minioadmin}
       - S3_BUCKET=${S3_BUCKET:-datacleaner-images}
+      - SITE_URL=${SITE_URL:-http://localhost}
     depends_on:
       minio:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
-      interval: 5s
+      interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 15s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
 
+  # ── Frontend — React приложение (production сборка с nginx) ──────────────
   frontend:
-    build: ./frontend
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
     environment:
-      - REACT_APP_API_URL=${REACT_APP_API_URL}
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost/api}
+      - REACT_APP_SITE_URL=${SITE_URL:-http://localhost}
     depends_on:
       backend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health.txt"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ── Nginx — обратный прокси ───────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
 
 volumes:
-  db_data:    # именованный volume — удаляется при `docker compose down -v`
-  minio_data: # S3-совместимое объектное хранилище
+  db_data:
+  minio_data:
